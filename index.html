@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1a237e">
+    <title>Verificador Serie B - BCB</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
+    
+    <!-- Libraries -->
+    <script src='https://unpkg.com/tesseract.js@4.1.1/dist/tesseract.min.js'></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="app-header">
+            <h1>Verificador Serie B</h1>
+            <p class="subtitle">Banco Central de Bolivia</p>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="nav-tabs">
+            <button class="nav-btn active" onclick="showScreen('home')">🏠 Inicio</button>
+            <button class="nav-btn" onclick="showScreen('scanner')">📷 Escanear</button>
+            <button class="nav-btn" onclick="showScreen('manual')">⌨️ Manual</button>
+            <button class="nav-btn" onclick="showScreen('history')">📊 Historial</button>
+        </nav>
+
+        <!-- Screens -->
+        <main class="content">
+            <!-- HOME SCREEN -->
+            <div id="screen-home" class="screen active">
+                <div class="hero-card">
+                    <div class="icon-large">💵</div>
+                    <h2>Verifica tus billetes</h2>
+                    <p>Detecta billetes de la Serie B que ya no tienen valor legal</p>
+                    <div class="quick-actions">
+                        <button class="btn-primary" onclick="showScreen('scanner')">
+                            <span class="btn-icon">📷</span>
+                            Escanear Billete
+                        </button>
+                        <button class="btn-secondary" onclick="showScreen('manual')">
+                            <span class="btn-icon">⌨️</span>
+                            Verificación Manual
+                        </button>
+                    </div>
+                </div>
+
+                <div class="info-cards">
+                    <div class="info-card">
+                        <div class="color-box blue"></div>
+                        <span>10 Bs</span>
+                    </div>
+                    <div class="info-card">
+                        <div class="color-box orange"></div>
+                        <span>20 Bs</span>
+                    </div>
+                    <div class="info-card">
+                        <div class="color-box purple"></div>
+                        <span>50 Bs</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SCANNER SCREEN -->
+            <div id="screen-scanner" class="screen">
+                <div class="scanner-container">
+                    <div class="camera-wrapper">
+                        <video id="camera-feed" autoplay playsinline></video>
+                        <canvas id="camera-canvas"></canvas>
+                        <div class="overlay-guide">
+                            <div class="guide-text">Enfoca el número de serie</div>
+                            <div class="corner-marker top-left"></div>
+                            <div class="corner-marker top-right"></div>
+                            <div class="corner-marker bottom-left"></div>
+                            <div class="corner-marker bottom-right"></div>
+                        </div>
+                        <div id="scan-status" class="scan-status">Iniciando cámara...</div>
+                    </div>
+                    
+                    <div class="scanner-controls">
+                        <button id="btn-capture" class="btn-capture" onclick="captureAndAnalyze()">
+                            <div class="capture-ring"></div>
+                        </button>
+                        <p class="capture-text">Tocar para verificar</p>
+                    </div>
+
+                    <div id="scan-results" class="results-container hidden">
+                        <!-- Results injected here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- MANUAL SCREEN -->
+            <div id="screen-manual" class="screen">
+                <div class="manual-form card">
+                    <h3>Verificación Manual</h3>
+                    
+                    <div class="form-group">
+                        <label>Denominación:</label>
+                        <div class="denomination-selector">
+                            <label class="denom-option">
+                                <input type="radio" name="denom" value="10" checked>
+                                <div class="denom-box blue">
+                                    <span class="denom-amount">10</span>
+                                    <span class="denom-currency">Bs</span>
+                                </div>
+                            </label>
+                            <label class="denom-option">
+                                <input type="radio" name="denom" value="20">
+                                <div class="denom-box orange">
+                                    <span class="denom-amount">20</span>
+                                    <span class="denom-currency">Bs</span>
+                                </div>
+                            </label>
+                            <label class="denom-option">
+                                <input type="radio" name="denom" value="50">
+                                <div class="denom-box purple">
+                                    <span class="denom-amount">50</span>
+                                    <span class="denom-currency">Bs</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="serial-input">Número de Serie:</label>
+                        <input type="text" id="serial-input" class="serial-input" 
+                               placeholder="Ej: 000000000" maxlength="9" inputmode="numeric">
+                        <small class="input-hint">Ingrese solo números, sin espacios ni letras</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Serie:</label>
+                        <div class="series-selector">
+                            <label class="series-option">
+                                <input type="radio" name="series" value="A" checked>
+                                <span>Serie A (Válida)</span>
+                            </label>
+                            <label class="series-option">
+                                <input type="radio" name="series" value="B">
+                                <span>Serie B (Verificar)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <button class="btn-primary btn-full" onclick="verifyManual()">
+                        Verificar Billete
+                    </button>
+
+                    <div id="manual-result" class="result-box hidden">
+                        <!-- Result injected here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- HISTORY SCREEN -->
+            <div id="screen-history" class="screen">
+                <div class="history-header">
+                    <h3>📊 Historial de Verificaciones</h3>
+                    <button class="btn-clear" onclick="clearHistory()">🗑️ Limpiar</button>
+                </div>
+                <div id="history-list" class="history-list">
+                    <div class="empty-state">No hay verificaciones recientes</div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Support Section -->
+        <footer class="support-section">
+  <div class="support-divider"></div>
+  <div class="support-content">
+    <h4>Apoyo al creador</h4>
+    <div class="qr-container">
+      <!-- QR Real de donación -->
+      <div class="qr-wrapper">
+        <img src="assets/qr-donacion.png" 
+             alt="QR para donación" 
+             class="qr-image"
+             id="donation-qr">
+      </div>
+      <p class="support-text">Apoya el desarrollo de esta herramienta</p>
+      <p class="contact-info"> 
+        <strong>IntiPixel-bo</strong><br> 
+        WhatsApp +591 72211111 
+      </p>
+      
+      <!-- Botón opcional para descargar el QR -->
+      <button class="btn-download-qr" onclick="downloadQR()">
+        💾 Guardar QR
+      </button>
+    </div>
+  </div>
+</footer>
+
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading" class="loading-overlay hidden">
+        <div class="spinner"></div>
+        <p>Analizando...</p>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast hidden"></div>
+
+    <!-- Scripts -->
+    <script src="app.js"></script>
+</body>
+</html>
