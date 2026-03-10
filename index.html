@@ -3,211 +3,157 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#1a237e">
-    <title>Verificador Serie B - BCB</title>
+    <meta name="theme-color" content="#0d1642">
+    <title>Verificador IA Pro - Serie B Bolivia</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
-    
-    <!-- Libraries -->
-    <script src='https://unpkg.com/tesseract.js@4.1.1/dist/tesseract.min.js'></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
+    <script src="https://unpkg.com/tesseract.js@5.0.0/dist/tesseract.min.js"></script>
 </head>
 <body>
     <div id="app">
-        <!-- Header -->
-        <header class="app-header">
-            <h1>Verificador Serie B</h1>
-            <p class="subtitle">Banco Central de Bolivia</p>
+        <header class="header-pro">
+            <div class="logo-area">
+                <div class="logo-icon">🔍</div>
+                <div>
+                    <h1>Verificador IA Pro</h1>
+                    <span class="badge-ai">IA Neural 95%</span>
+                </div>
+            </div>
+            <div class="connection-status" id="conn-status">●</div>
         </header>
 
-        <!-- Navigation -->
-        <nav class="nav-tabs">
-            <button class="nav-btn active" onclick="showScreen('home')">🏠 Inicio</button>
-            <button class="nav-btn" onclick="showScreen('scanner')">📷 Escanear</button>
-            <button class="nav-btn" onclick="showScreen('manual')">⌨️ Manual</button>
-            <button class="nav-btn" onclick="showScreen('history')">📊 Historial</button>
-        </nav>
+        <div class="ai-panel">
+            <div class="ai-metrics">
+                <div class="metric">
+                    <span class="metric-val" id="detected-count">0</span>
+                    <span class="metric-label">Billetes</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-val" id="precision-rate">95%</span>
+                    <span class="metric-label">Precisión</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-val" id="processing-time">0ms</span>
+                    <span class="metric-label">Proceso</span>
+                </div>
+            </div>
+        </div>
 
-        <!-- Screens -->
-        <main class="content">
-            <!-- HOME SCREEN -->
-            <div id="screen-home" class="screen active">
-                <div class="hero-card">
-                    <div class="icon-large">💵</div>
-                    <h2>Verifica tus billetes</h2>
-                    <p>Detecta billetes de la Serie B que ya no tienen valor legal</p>
-                    <div class="quick-actions">
-                        <button class="btn-primary" onclick="showScreen('scanner')">
-                            <span class="btn-icon">📷</span>
-                            Escanear Billete
-                        </button>
-                        <button class="btn-secondary" onclick="showScreen('manual')">
-                            <span class="btn-icon">⌨️</span>
-                            Verificación Manual
-                        </button>
-                    </div>
+        <main class="scanner-view">
+            <div class="camera-portal" id="camera-portal">
+                <video id="video" autoplay playsinline muted></video>
+                <canvas id="preview-canvas"></canvas>
+                <div id="detection-layer" class="detection-layer"></div>
+                
+                <!-- Guías de escaneo múltiple -->
+                <div class="scan-grid">
+                    <div class="grid-cell" data-zone="1"></div>
+                    <div class="grid-cell" data-zone="2"></div>
+                    <div class="grid-cell" data-zone="3"></div>
+                    <div class="grid-cell" data-zone="4"></div>
                 </div>
 
-                <div class="info-cards">
-                    <div class="info-card">
-                        <div class="color-box blue"></div>
-                        <span>10 Bs</span>
-                    </div>
-                    <div class="info-card">
-                        <div class="color-box orange"></div>
-                        <span>20 Bs</span>
-                    </div>
-                    <div class="info-card">
-                        <div class="color-box purple"></div>
-                        <span>50 Bs</span>
-                    </div>
+                <div class="scan-hud">
+                    <div class="hud-line top"></div>
+                    <div class="hud-line bottom"></div>
+                    <div class="hud-text">Enfoca billetes apilados</div>
                 </div>
             </div>
 
-            <!-- SCANNER SCREEN -->
-            <div id="screen-scanner" class="screen">
-                <div class="scanner-container">
-                    <div class="camera-wrapper">
-                        <video id="camera-feed" autoplay playsinline></video>
-                        <canvas id="camera-canvas"></canvas>
-                        <div class="overlay-guide">
-                            <div class="guide-text">Enfoca el número de serie</div>
-                            <div class="corner-marker top-left"></div>
-                            <div class="corner-marker top-right"></div>
-                            <div class="corner-marker bottom-left"></div>
-                            <div class="corner-marker bottom-right"></div>
-                        </div>
-                        <div id="scan-status" class="scan-status">Iniciando cámara...</div>
+            <div class="controls-pro">
+                <button id="btn-capture-multi" class="btn-shutter" onclick="analyzeStack()">
+                    <div class="shutter-ring">
+                        <span>📷</span>
                     </div>
-                    
-                    <div class="scanner-controls">
-                        <button id="btn-capture" class="btn-capture" onclick="captureAndAnalyze()">
-                            <div class="capture-ring"></div>
-                        </button>
-                        <p class="capture-text">Tocar para verificar</p>
-                    </div>
-
-                    <div id="scan-results" class="results-container hidden">
-                        <!-- Results injected here -->
-                    </div>
-                </div>
+                    <label>Escanear Pila</label>
+                </button>
+                
+                <button id="btn-single" class="btn-mode" onclick="setMode('single')">
+                    <span>1️⃣</span>
+                    <label>Individual</label>
+                </button>
+                
+                <button id="btn-batch" class="btn-mode active" onclick="setMode('batch')">
+                    <span>📚</span>
+                    <label>Múltiple</label>
+                </button>
             </div>
 
-            <!-- MANUAL SCREEN -->
-            <div id="screen-manual" class="screen">
-                <div class="manual-form card">
-                    <h3>Verificación Manual</h3>
-                    
-                    <div class="form-group">
-                        <label>Denominación:</label>
-                        <div class="denomination-selector">
-                            <label class="denom-option">
-                                <input type="radio" name="denom" value="10" checked>
-                                <div class="denom-box blue">
-                                    <span class="denom-amount">10</span>
-                                    <span class="denom-currency">Bs</span>
-                                </div>
-                            </label>
-                            <label class="denom-option">
-                                <input type="radio" name="denom" value="20">
-                                <div class="denom-box orange">
-                                    <span class="denom-amount">20</span>
-                                    <span class="denom-currency">Bs</span>
-                                </div>
-                            </label>
-                            <label class="denom-option">
-                                <input type="radio" name="denom" value="50">
-                                <div class="denom-box purple">
-                                    <span class="denom-amount">50</span>
-                                    <span class="denom-currency">Bs</span>
-                                </div>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="serial-input">Número de Serie:</label>
-                        <input type="text" id="serial-input" class="serial-input" 
-                               placeholder="Ej: 000000000" maxlength="9" inputmode="numeric">
-                        <small class="input-hint">Ingrese solo números, sin espacios ni letras</small>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Serie:</label>
-                        <div class="series-selector">
-                            <label class="series-option">
-                                <input type="radio" name="series" value="A" checked>
-                                <span>Serie A (Válida)</span>
-                            </label>
-                            <label class="series-option">
-                                <input type="radio" name="series" value="B">
-                                <span>Serie B (Verificar)</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <button class="btn-primary btn-full" onclick="verifyManual()">
-                        Verificar Billete
-                    </button>
-
-                    <div id="manual-result" class="result-box hidden">
-                        <!-- Result injected here -->
-                    </div>
+            <div class="results-panel" id="results-panel">
+                <div class="panel-header">
+                    <h3>📊 Resultados del Análisis</h3>
+                    <button class="btn-export" onclick="exportResults()">📥 Exportar</button>
                 </div>
-            </div>
-
-            <!-- HISTORY SCREEN -->
-            <div id="screen-history" class="screen">
-                <div class="history-header">
-                    <h3>📊 Historial de Verificaciones</h3>
-                    <button class="btn-clear" onclick="clearHistory()">🗑️ Limpiar</button>
-                </div>
-                <div id="history-list" class="history-list">
-                    <div class="empty-state">No hay verificaciones recientes</div>
+                <div id="bills-container" class="bills-grid">
+                    <!-- Resultados dinámicos -->
                 </div>
             </div>
         </main>
 
-        <!-- Support Section -->
-        <footer class="support-section">
-  <div class="support-divider"></div>
-  <div class="support-content">
-    <h4>Apoyo al creador</h4>
-    <div class="qr-container">
-      <!-- QR Real de donación -->
-      <div class="qr-wrapper">
-        <img src="assets/qr-donacion.png" 
-             alt="QR para donación" 
-             class="qr-image"
-             id="donation-qr">
-      </div>
-      <p class="support-text">Apoya el desarrollo de esta herramienta</p>
-      <p class="contact-info"> 
-        <strong>IntiPixel-bo</strong><br> 
-        WhatsApp +591 72211111 
-      </p>
-      
-      <!-- Botón opcional para descargar el QR -->
-      <button class="btn-download-qr" onclick="downloadQR()">
-        💾 Guardar QR
-      </button>
+        <div class="manual-section" id="manual-section">
+            <h3>Verificación Manual Precisa</h3>
+            <div class="input-ocr-group">
+                <div class="denom-selector">
+                    <button class="denom-btn" onclick="setDenom(10)" id="btn-10">
+                        <span class="color-dot blue"></span>
+                        <span class="amount">Bs 10</span>
+                    </button>
+                    <button class="denom-btn" onclick="setDenom(20)" id="btn-20">
+                        <span class="color-dot orange"></span>
+                        <span class="amount">Bs 20</span>
+                    </button>
+                    <button class="denom-btn" onclick="setDenom(50)" id="btn-50">
+                        <span class="color-dot purple"></span>
+                        <span class="amount">Bs 50</span>
+                    </button>
+                </div>
+                
+                <div class="serial-input-group">
+                    <label>Serie (Letra)</label>
+                    <select id="manual-series" class="input-pro">
+                        <option value="A">A - Válida</option>
+                        <option value="B">B - Verificar</option>
+                    </select>
+                </div>
+
+                <div class="serial-input-group wide">
+                    <label>Número de Serie (9 dígitos)</label>
+                    <input type="text" id="manual-serial" class="input-pro serial" 
+                           placeholder="000000000" maxlength="9" inputmode="numeric"
+                           oninput="formatSerial(this)">
+                    <small class="hint">Se auto-completa con ceros a la izquierda</small>
+                </div>
+
+                <button class="btn-verify" onclick="verifyManual()">
+                    Verificar con IA
+                </button>
+            </div>
+        </div>
+
+        <footer class="support-pro">
+            <div class="developer-card">
+                <img src="assets/qr-donacion.png" alt="QR Donación" class="dev-qr">
+                <div class="dev-info">
+                    <h4>Desarrollado por IntiPixel-bo</h4>
+                    <p class="dev-contact">📱 +591 72211111</p>
+                    <p class="dev-version">v2.0 - Motor OCR Neural</p>
+                </div>
+            </div>
+        </footer>
     </div>
-  </div>
-</footer>
 
+    <!-- Loading Neural -->
+    <div id="neural-loader" class="neural-loader hidden">
+        <div class="brain-animation">
+            <div class="neural-network"></div>
+            <p>Analizando estructura del billete...</p>
+            <div class="progress-neural">
+                <div class="fill" id="neural-progress"></div>
+            </div>
+            <p class="detail" id="ocr-detail">Detectando región de serie...</p>
+        </div>
     </div>
 
-    <!-- Loading Overlay -->
-    <div id="loading" class="loading-overlay hidden">
-        <div class="spinner"></div>
-        <p>Analizando...</p>
-    </div>
-
-    <!-- Toast Notification -->
-    <div id="toast" class="toast hidden"></div>
-
-    <!-- Scripts -->
-    <script src="app.js"></script>
+    <script src="app-ia.js"></script>
 </body>
 </html>
